@@ -30,4 +30,7 @@ struct PredStats
     double p_val;
 };
 
+typedef Eigen::SparseMatrix<double, Eigen::RowMajor> dmat_type;
+typedef dmat_type::InnerVectorReturnType dmivr_type;
+
 #endif

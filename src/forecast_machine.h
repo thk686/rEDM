@@ -9,8 +9,9 @@
 #include <algorithm>
 #include <math.h>
 #include <Rcpp.h>
-#include "data_types.h"
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include "data_types.h"
 
 using namespace Eigen;
 using namespace Rcpp;
@@ -25,7 +26,7 @@ protected:
     void init_distances();
     void compute_distances();
     //void sort_neighbors();
-    std::vector<size_t> find_nearest_neighbors(const vec& dist);
+    std::vector<size_t> find_nearest_neighbors(const dmivr_type& dist);
 
     void forecast();
     void set_indices_from_range(std::vector<bool>& indices, const std::vector<time_range>& range, 
@@ -54,7 +55,8 @@ protected:
     vec const_predicted;
     size_t num_vectors;
     std::function<double (const vec&, const vec&)> dist_func;
-    std::vector<vec > distances;
+    // std::vector<vec > distances;
+    dmat_type distances;
     
     // *** parameters *** //
     bool CROSS_VALIDATION;

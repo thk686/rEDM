@@ -9,7 +9,7 @@ which_lib(std::vector<size_t>()), which_pred(std::vector<size_t>()),
 time(vec()), data_vectors(std::vector<vec>()), smap_coefficients(std::vector<vec>()), 
 targets(vec()), predicted(vec()), predicted_var(vec()), 
 const_targets(vec()), const_predicted(vec()), 
-num_vectors(0), distances(std::vector<vec>()), 
+num_vectors(0), distances(), 
 CROSS_VALIDATION(false), SUPPRESS_WARNINGS(false), SAVE_SMAP_COEFFICIENTS(false), 
 pred_mode(SIMPLEX), norm_mode(L2_NORM),
 nn(0), exclusion_radius(-1), epsilon(-1), p(0.5), 
@@ -94,7 +94,7 @@ void ForecastMachine::init_distances()
     }
     
     // initialize distance matrix
-    distances.assign(num_vectors, vec(num_vectors, qnan));
+    distances.resize(num_vectors, num_vectors);
     return;
 }
 
@@ -124,12 +124,15 @@ void ForecastMachine::compute_distances()
     {
         for(auto& curr_lib: which_lib)
         {
-            if(std::isnan(distances[curr_pred][curr_lib]))
-            {
-                distances[curr_pred][curr_lib] = dist_func(data_vectors[curr_pred],
-                                                            data_vectors[curr_lib]);
-                distances[curr_lib][curr_pred] = distances[curr_pred][curr_lib];                              
-            }
+            // if(std::isnan(distances[curr_pred][curr_lib]))
+            // {
+            //     distances[curr_pred][curr_lib] = dist_func(data_vectors[curr_pred],
+            //                                                 data_vectors[curr_lib]);
+            //     distances[curr_lib][curr_pred] = distances[curr_pred][curr_lib];                              
+            // }
+            distances.insert(curr_pred, curr_lib) = dist_func(data_vectors[curr_pred],
+                                                              data_vectors[curr_lib]);
+            distances.insert(curr_lib, curr_pred) = distances.coeff(curr_pred, curr_lib);
         }
     }
     /*
@@ -146,7 +149,7 @@ void ForecastMachine::compute_distances()
     return;
 }
 
-std::vector<size_t> ForecastMachine::find_nearest_neighbors(const vec& dist)
+std::vector<size_t> ForecastMachine::find_nearest_neighbors(const dmivr_type& dist)
 {
     if(nn < 1)
     {
@@ -423,7 +426,7 @@ void ForecastMachine::simplex_prediction(const size_t start, const size_t end)
         {
             temp_lib = which_lib;
             adjust_lib(curr_pred);
-            nearest_neighbors = find_nearest_neighbors(distances[curr_pred]);
+            nearest_neighbors = find_nearest_neighbors(distances.innerVector(curr_pred));
             which_lib = temp_lib;
         }
         else
