@@ -86,7 +86,7 @@ private:
 };
 
 std::vector<size_t> which_indices_true(const std::vector<bool>& indices);
-std::vector<size_t> sort_indices(const std::vector<double>& v, const std::vector<size_t> idx);
+std::vector<size_t> sort_indices(const dmivr_type& v, const std::vector<size_t> idx);
 PredStats compute_stats(const vec& obs, const vec& pred);
 DataFrame get_stats(const vec& obs, const vec& pred);
 

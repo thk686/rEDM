@@ -175,12 +175,12 @@ std::vector<size_t> ForecastMachine::find_nearest_neighbors(const dmivr_type& di
         if(curr_lib == neighbors.end())
             return nearest_neighbors;
             
-        double tie_distance = dist[nearest_neighbors.back()];
+        double tie_distance = dist.col(nearest_neighbors.back()).coeff(0, 0);
         
         // check for ties
         for(++curr_lib; curr_lib != neighbors.end(); ++curr_lib)
         {
-            if(dist[*curr_lib] > tie_distance) // distance is bigger
+            if(dist.col(*curr_lib).coeff(0, 0) > tie_distance) // distance is bigger
                 break;
             nearest_neighbors.push_back(*curr_lib); // add to nearest neighbors
         }
@@ -191,18 +191,18 @@ std::vector<size_t> ForecastMachine::find_nearest_neighbors(const dmivr_type& di
         nearest_neighbors.push_back(which_lib[0]);
         for(auto curr_lib: which_lib)
         {
-            curr_distance = dist[curr_lib];
-            if(curr_distance <= dist[nearest_neighbors.back()])
+            curr_distance = dist.col(curr_lib).coeff(0, 0);
+            if(curr_distance <= dist.col(nearest_neighbors.back()).coeff(0, 0))
             {
                 i = nearest_neighbors.size();
-                while((i > 0) && (curr_distance < dist[nearest_neighbors[i-1]]))
+                while((i > 0) && (curr_distance < dist.col(nearest_neighbors[i-1]).coeff(0, 0)))
                 {
                     i--;
                 }
                 nearest_neighbors.insert(nearest_neighbors.begin()+i, curr_lib);
                 
                 if((nearest_neighbors.size() > nn) && 
-                   (dist[nearest_neighbors[nn-1]] < dist[nearest_neighbors.back()]))
+                   (dist.col(nearest_neighbors[nn-1]).coeff(0, 0) < dist.col(nearest_neighbors.back()).coeff(0, 0)))
                 {
                     nearest_neighbors.pop_back();
                 }
@@ -215,7 +215,7 @@ std::vector<size_t> ForecastMachine::find_nearest_neighbors(const dmivr_type& di
     {
         for(auto neighbor_iter = nearest_neighbors.begin(); neighbor_iter != nearest_neighbors.end(); ++neighbor_iter)
         {
-            if(dist[*neighbor_iter] > epsilon)
+            if(dist.col(*neighbor_iter).coeff(0, 0) > epsilon)
             {
                 nearest_neighbors.erase(neighbor_iter, nearest_neighbors.end());
                 break;
@@ -431,7 +431,7 @@ void ForecastMachine::simplex_prediction(const size_t start, const size_t end)
         }
         else
         {
-            nearest_neighbors = find_nearest_neighbors(distances[curr_pred]);
+            nearest_neighbors = find_nearest_neighbors(distances.innerVector(curr_pred));
         }
         effective_nn = nearest_neighbors.size();
         
@@ -443,13 +443,13 @@ void ForecastMachine::simplex_prediction(const size_t start, const size_t end)
         }
         
         // compute weights
-        min_distance = distances[curr_pred][nearest_neighbors[0]];
+        min_distance = distances.coeff(curr_pred, nearest_neighbors[0]);
         weights.assign(effective_nn, min_weight);
         if(min_distance == 0)
         {
             for(size_t k = 0; k < effective_nn; ++k)
             {
-                if(distances[curr_pred][nearest_neighbors[k]] == min_distance)
+                if(distances.coeff(curr_pred, nearest_neighbors[k]) == min_distance)
                     weights[k] = 1;
                 else
                     break;
@@ -459,7 +459,7 @@ void ForecastMachine::simplex_prediction(const size_t start, const size_t end)
         {
             for(size_t k = 0; k < effective_nn; ++k)
             {
-                weights[k] = fmax(exp(-distances[curr_pred][nearest_neighbors[k]] / min_distance),
+                weights[k] = fmax(exp(-distances.coeff(curr_pred, nearest_neighbors[k]) / min_distance),
                                  min_weight);
             }
         }
@@ -467,19 +467,19 @@ void ForecastMachine::simplex_prediction(const size_t start, const size_t end)
         // identify ties and adjust weights
         if(effective_nn > nn) // ties exist
         {
-            tie_distance = distances[curr_pred][nearest_neighbors.back()];
+            tie_distance = distances.coeff(curr_pred, nearest_neighbors.back());
             
             // count ties
             num_ties = 0;
             for(auto& neighbor_index: nearest_neighbors)
-                if(distances[curr_pred][neighbor_index] == tie_distance)
+                if(distances.coeff(curr_pred, neighbor_index) == tie_distance)
                     num_ties++;
             
             tie_adj_factor = double(num_ties + nn - effective_nn) / double(num_ties);
             
             // adjust weights
             for(size_t k = 0; k < nearest_neighbors.size(); ++k)
-                if(distances[curr_pred][nearest_neighbors[k]] == tie_distance)
+                if(distances.coeff(curr_pred, nearest_neighbors[k]) == tie_distance)
                     weights[k] *= tie_adj_factor;
         }
         
@@ -519,12 +519,12 @@ void ForecastMachine::smap_prediction(const size_t start, const size_t end)
         {
             temp_lib = which_lib;
             adjust_lib(curr_pred);
-            nearest_neighbors = find_nearest_neighbors(distances[curr_pred]);
+            nearest_neighbors = find_nearest_neighbors(distances.innerVector(curr_pred));
             which_lib = temp_lib;
         }
         else
         {
-            nearest_neighbors = find_nearest_neighbors(distances[curr_pred]);
+            nearest_neighbors = find_nearest_neighbors(distances.innerVector(curr_pred));
         }
         effective_nn = nearest_neighbors.size();
         
@@ -542,13 +542,13 @@ void ForecastMachine::smap_prediction(const size_t start, const size_t end)
             avg_distance = 0;
             for(auto& neighbor: nearest_neighbors)
             {
-                avg_distance += distances[curr_pred][neighbor];
+                avg_distance += distances.coeff(curr_pred, neighbor);
             }
             avg_distance /= effective_nn;
             
             // compute weights
             for(size_t i = 0; i < effective_nn; ++i)
-                weights[i] = exp(-theta * distances[curr_pred][nearest_neighbors[i]] / avg_distance);
+                weights[i] = exp(-theta * distances.coeff(curr_pred, nearest_neighbors[i]) / avg_distance);
         }
         
         // setup matrices for SVD
@@ -636,10 +636,10 @@ std::vector<size_t> which_indices_true(const std::vector<bool>& indices)
     return which;
 }
 
-std::vector<size_t> sort_indices(const vec& v, std::vector<size_t> idx)
+std::vector<size_t> sort_indices(const dmivr_type& v, std::vector<size_t> idx)
 {
     sort(idx.begin(), idx.end(),
-         [&v](size_t i1, size_t i2) {return v[i1] < v[i2];});
+         [&v](size_t i1, size_t i2) {return v.col(i1).coeff(0, 0) < v.col(i2).coeff(0, 0);});
     return idx;
 }
 
